@@ -5,7 +5,9 @@ source setup_cpu.sh
 source activate s2sv
 
 wget https://github.com/sebastianGehrmann/OpenNMT-py/archive/states_in_translation.zip
-cd OpenNMT-py/
+unzip states_in_translation.zip
+mv OpenNMT-py-states_in_translation OpenNMT-py
+cd OpenNMT-py
 python setup.py install
 pip install torchtext
 cd ..
