@@ -1,4 +1,5 @@
 cd OpenNMT-py
+brew install libomp
 wget https://github.com/pytorch/fairseq/blob/e734b0fa58fcf02ded15c236289b3bd61c4cffdf/data/prepare-iwslt14.sh
 bash prepare-iwslt14.sh
 cd iwslt14.tokenized.de-en
