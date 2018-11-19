@@ -10,6 +10,7 @@ sed -i -e 's/encoderset[bcounter:] = padded_enc/#encoderset[bcounter:] = padded_
 sed -i -e 's/decoderset[bcounter:] = padded_dec/#decoderset[bcounter:] = padded_dec/g' extract_context.py
 mkdir s2s
 python extract_context.py -src iwslt14.tokenized.de-en/train.de -tgt iwslt14.tokenized.de-en/train.en -model iwslt14.tokenized.de-en/iwslt-brnn2.s131_acc_62.71_ppl_7.74_e20.pt -batch_size 32
+cd ..
 cd scripts
 python h5_to_faiss.py -states ../s2s/states.h5 -data decoder_out -output decoder.faiss -stepsize 100
 python h5_to_faiss.py -states ../s2s/states.h5 -data encoder_out -output encoder.faiss -stepsize 100
