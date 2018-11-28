@@ -10,13 +10,13 @@ import torch
 
 from itertools import count
 from onmt.utils.misc import tile
-
+from pdb import set_trace as bp
 import onmt.model_builder
 import onmt.translate.beam
 import onmt.inputters as inputters
 import onmt.opts as opts
 import onmt.decoders.ensemble
-
+import pickle
 
 def build_translator(opt, report_score=True, logger=None, out_file=None):
     if out_file is None:
@@ -103,6 +103,8 @@ class Translator(object):
 
         self.use_filter_pred = False
 
+        # for dumping tensors
+        self.dump_hid = opt.output + '.dumps'
         # for debugging
         self.beam_trace = self.dump_beam != ""
         self.beam_accum = None
@@ -120,7 +122,8 @@ class Translator(object):
                   tgt_data_iter=None,
                   src_dir=None,
                   batch_size=None,
-                  attn_debug=False):
+                  attn_debug=False,
+                  save_outs=False):
         """
         Translate content of `src_data_iter` (if not None) or `src_path`
         and get gold scores if one of `tgt_data_iter` or `tgt_path` is set.
@@ -147,6 +150,8 @@ class Translator(object):
                 of `n_best` predictions
         """
         assert src_data_iter is not None or src_path is not None
+
+        self.save_outs = save_outs
 
         if batch_size is None:
             raise ValueError("batch_size must be set")
@@ -187,11 +192,25 @@ class Translator(object):
         all_scores = []
         all_predictions = []
 
-        for batch in data_iter:
-            batch_data = self.translate_batch(batch, data, attn_debug,
-                                              fast=self.fast)
-            translations = builder.from_batch(batch_data)
+        if self.save_outs == True:
+            self.saver_list = []
 
+        for batch in data_iter:
+            if self.save_outs:
+                batch_data, copy_enc_states, copy_memory_bank = \
+                         self.translate_batch(batch, data, attn_debug, fast=self.fast)
+            else:
+                batch_data = self.translate_batch(batch, data, attn_debug,
+                                               fast=self.fast)
+            if self.save_outs == True:
+                copy_memory_bank = copy_memory_bank.transpose(0, 1)
+                copy_enc_states = (copy_enc_states[0].transpose(0, 1), \
+                                    copy_enc_states[1].transpose(0, 1))
+                for i in range(copy_memory_bank.size()[0]):
+                    self.saver_list.append((copy_memory_bank[i], \
+                               (copy_enc_states[0][i], copy_enc_states[1][i])))
+
+            translations = builder.from_batch(batch_data)
             for trans in translations:
                 all_scores += [trans.pred_scores[:self.n_best]]
                 pred_score_total += trans.pred_scores[0]
@@ -235,6 +254,10 @@ class Translator(object):
                         output += row_format.format(word, *row) + '\n'
                         row_format = "{:>10.10} " + "{:>10.7f} " * len(srcs)
                     os.write(1, output.encode('utf-8'))
+
+        if self.save_outs:
+            print("saving the hidden states")
+            pickle.dump(self.saver_list, open(self.dump_hid, 'wb'))
 
         if self.report_score:
             msg = self._report_score('PRED', pred_score_total,
@@ -594,6 +617,9 @@ class Translator(object):
         # (1) Run the encoder on the src.
         src, enc_states, memory_bank, src_lengths = self._run_encoder(
             batch, data_type)
+        if self.save_outs:
+            copy_enc_states = enc_states
+            copy_memory_back = memory_bank
         self.model.decoder.init_state(src, memory_bank, enc_states)
 
         results = {}
@@ -669,7 +695,10 @@ class Translator(object):
             results["scores"].append(scores)
             results["attention"].append(attn)
 
-        return results
+        if self.save_outs:
+            return results, copy_enc_states, copy_memory_back
+        else:
+            return results
 
     def _score_target(self, batch, memory_bank, src_lengths, data, src_map):
         tgt_in = inputters.make_features(batch, 'tgt')[:-1]

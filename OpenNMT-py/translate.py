@@ -16,7 +16,8 @@ def main(opt):
                          tgt_path=opt.tgt,
                          src_dir=opt.src_dir,
                          batch_size=opt.batch_size,
-                         attn_debug=opt.attn_debug)
+                         attn_debug=opt.attn_debug,
+                         save_outs=True)
 
 
 if __name__ == "__main__":
