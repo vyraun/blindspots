@@ -194,6 +194,7 @@ class Translator(object):
 
         if self.save_outs == True:
             self.saver_list = []
+            self.input_tokens = []
 
         for batch in data_iter:
             if self.save_outs:
@@ -212,6 +213,8 @@ class Translator(object):
 
             translations = builder.from_batch(batch_data)
             for trans in translations:
+                if self.save_outs:
+                    self.input_tokens.append(trans.src_raw)
                 all_scores += [trans.pred_scores[:self.n_best]]
                 pred_score_total += trans.pred_scores[0]
                 pred_words_total += len(trans.pred_sents[0])
@@ -224,7 +227,6 @@ class Translator(object):
                 all_predictions += [n_best_preds]
                 self.out_file.write('\n'.join(n_best_preds) + '\n')
                 self.out_file.flush()
-
                 if self.verbose:
                     sent_number = next(counter)
                     output = trans.log(sent_number)
@@ -257,7 +259,10 @@ class Translator(object):
 
         if self.save_outs:
             print("saving the hidden states")
-            pickle.dump(self.saver_list, open(self.dump_hid, 'wb'))
+            final_list = []
+            for tokens, vectors in zip(self.input_tokens, self.saver_list):
+                final_list.append((tokens, vectors))
+            pickle.dump(final_list, open(self.dump_hid, 'wb'))
 
         if self.report_score:
             msg = self._report_score('PRED', pred_score_total,
