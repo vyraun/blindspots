@@ -173,7 +173,10 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None):
         src_dict = fields["src"].vocab
         feature_dicts = inputters.collect_feature_vocabs(fields, 'src')
         src_embeddings = build_embeddings(model_opt, src_dict, feature_dicts)
-        encoder = build_encoder(model_opt, src_embeddings)
+
+        # TODO: try diff embeddings
+        encoder_last = build_encoder(model_opt, src_embeddings)
+        encoder_attn = build_encoder(model_opt, src_embeddings)
     elif model_opt.model_type == "img":
         if ("image_channel_size" not in model_opt.__dict__):
             image_channel_size = 3
@@ -216,7 +219,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None):
 
     # Build NMTModel(= encoder + decoder).
     device = torch.device("cuda" if gpu else "cpu")
-    model = onmt.models.NMTModel(encoder, decoder)
+    model = onmt.models.NMTModel(encoder_last, encoder_attn, decoder)
 
     # Build Generator.
     if not model_opt.copy_attn:
@@ -264,8 +267,10 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None):
                 if p.dim() > 1:
                     xavier_uniform_(p)
 
-        if hasattr(model.encoder, 'embeddings'):
-            model.encoder.embeddings.load_pretrained_vectors(
+        if hasattr(model.encoder_attn, 'embeddings'):
+            model.encoder_last.embeddings.load_pretrained_vectors(
+                model_opt.pre_word_vecs_enc, model_opt.fix_word_vecs_enc)
+            model.encoder_attn.embeddings.load_pretrained_vectors(
                 model_opt.pre_word_vecs_enc, model_opt.fix_word_vecs_enc)
         if hasattr(model.decoder, 'embeddings'):
             model.decoder.embeddings.load_pretrained_vectors(

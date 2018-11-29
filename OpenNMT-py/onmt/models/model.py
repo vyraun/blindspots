@@ -13,9 +13,10 @@ class NMTModel(nn.Module):
       multi<gpu (bool): setup for multigpu support
     """
 
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder_last, encoder_attn, decoder):
         super(NMTModel, self).__init__()
-        self.encoder = encoder
+        self.encoder_last = encoder_last
+        self.encoder_attn = encoder_attn
         self.decoder = decoder
 
     def forward(self, src, tgt, lengths):
@@ -40,7 +41,8 @@ class NMTModel(nn.Module):
         """
         tgt = tgt[:-1]  # exclude last target from inputs
 
-        enc_state, memory_bank, lengths = self.encoder(src, lengths)
+        enc_state, _, _ = self.encoder_last(src, lengths)
+        _, memory_bank, lengths = self.encoder_attn(src, lengths)
         self.decoder.init_state(src, memory_bank, enc_state)
         dec_out, attns = self.decoder(tgt, memory_bank,
                                       memory_lengths=lengths)
