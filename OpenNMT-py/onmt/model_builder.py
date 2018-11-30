@@ -172,11 +172,12 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None):
     if model_opt.model_type == "text":
         src_dict = fields["src"].vocab
         feature_dicts = inputters.collect_feature_vocabs(fields, 'src')
-        src_embeddings = build_embeddings(model_opt, src_dict, feature_dicts)
+        src_embeddings_last = build_embeddings(model_opt, src_dict, feature_dicts)
+        src_embeddings_attn = build_embeddings(model_opt, src_dict, feature_dicts)
 
         # TODO: try diff embeddings
-        encoder_last = build_encoder(model_opt, src_embeddings)
-        encoder_attn = build_encoder(model_opt, src_embeddings)
+        encoder_last = build_encoder(model_opt, src_embeddings_last)
+        encoder_attn = build_encoder(model_opt, src_embeddings_attn)
     elif model_opt.model_type == "img":
         if ("image_channel_size" not in model_opt.__dict__):
             image_channel_size = 3
