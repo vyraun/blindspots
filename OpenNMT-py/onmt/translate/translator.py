@@ -197,19 +197,23 @@ class Translator(object):
 
         if self.save_outs == True:
             self.saver_list = []
-            self.input_tokens = []
 
         for batch in data_iter:
             if self.save_outs:
+                self.input_tokens = []
                 batch_len, batch_size = batch.src[0].size(0), batch.src[0].size(1)
                 for i in range(batch_size):
+                    token_lister = []
                     for j in range(batch_len):
                         word = self.fields['src'].vocab.itos[batch.src[0][j][i]]
+                        self.input_tokens.append(word)
                         if word not in self.embed_dict:
                             input_word_vec = batch.src[0][j][i].view(1, 1, 1)
                             self.embed_dict[word] = self.model.encoder.embeddings(input_word_vec)[0][0]
+                    self.input_tokens.append(token_lister)
                 batch_data, copy_enc_states, copy_memory_bank = \
                          self.translate_batch(batch, data, attn_debug, fast=self.fast)
+
             else:
                 batch_data = self.translate_batch(batch, data, attn_debug,
                                                fast=self.fast)
@@ -218,8 +222,9 @@ class Translator(object):
                 copy_enc_states = (copy_enc_states[0].transpose(0, 1), \
                                     copy_enc_states[1].transpose(0, 1))
                 for i in range(copy_memory_bank.size()[0]):
-                    self.saver_list.append((copy_memory_bank[i], \
-                               (copy_enc_states[0][i], copy_enc_states[1][i])))
+                    tokens = ' '.join(each for each in self.input_tokens[i] if each != '<blank>')
+                    self.saver_list.append((tokens, (copy_memory_bank[i], \
+                               (copy_enc_states[0][i], copy_enc_states[1][i]))))
 
             translations = builder.from_batch(batch_data)
             for trans in translations:
@@ -269,10 +274,10 @@ class Translator(object):
 
         if self.save_outs:
             print("saving the hidden states")
-            final_list = []
-            for tokens, vectors in zip(self.input_tokens, self.saver_list):
-                final_list.append((tokens, vectors))
-            pickle.dump(final_list, open(self.dump_hid, 'wb'))
+            #final_list = []
+            #for tokens, vectors in zip(self.input_tokens, self.saver_list):
+            #    final_list.append((tokens, vectors))
+            pickle.dump(self.saver_list, open(self.dump_hid, 'wb'))
             print("saving the embedding vectors")
             print(len(self.embed_dict))
             pickle.dump(self.embed_dict, open(self.dump_embed, 'wb'))
