@@ -17,7 +17,7 @@ def main(opt):
                          src_dir=opt.src_dir,
                          batch_size=opt.batch_size,
                          attn_debug=opt.attn_debug,
-                         save_outs=False)
+                         save_outs=True)
 
 
 if __name__ == "__main__":
