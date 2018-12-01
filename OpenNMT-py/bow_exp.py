@@ -13,7 +13,7 @@ def build_data(data, shuffle=True, w2i=None):
   hiddens = []
   labels = []
   for row in data:
-    for i in range(len(row[0])):
+    for i in range(len(row[0])-2,len(row[0])):
       hiddens.append(row[1][0][i])
       bow = torch.zeros(len(w2i)).cuda()
       bow[[w2i.get(w, 0) for w in row[0][:i+1]]] = 1
@@ -86,11 +86,11 @@ def evaluate(model, data):
   correct = (y == 1) 
 
   # TP / (TP + FP)
-  prec = ( ( torch.sum(pred & correct, dim=1)/torch.sum(pred == 1 , dim=1)).float()  * (torch.sum(pred==1, dim=1)>0).float() ).float().mean()
+  prec = ( ( torch.sum(pred & correct, dim=1).float()  /torch.sum(pred == 1 , dim=1).float() ).float()  * (torch.sum(pred==1, dim=1)>0).float() ).float().mean()
   print("Test precision: {0}".format(prec.item()))
 
   # TP / (TP + FN)
-  recall = ( torch.sum(pred & correct, dim=1)/torch.sum(correct == 1, dim=1) ).float().mean()
+  recall = ( torch.sum(pred & correct, dim=1).float() /torch.sum(correct == 1, dim=1).float() ).float().mean()
   print("Test recall: {0}".format(recall.item()))
 
   model.train()
@@ -126,7 +126,7 @@ def train(num_epochs=100, batch_size=64):
 
       # Calculate loss and backward pass
 
-      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch, y_batch * 0.8 + 0.2 *  (y_batch == 0).float())
+      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch)#, y_batch * 0.8 + 0.2 *  (y_batch == 0).float())
       loss.backward()
       cum_loss += loss.item()
 
