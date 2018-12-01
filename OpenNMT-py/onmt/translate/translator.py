@@ -206,7 +206,7 @@ class Translator(object):
                     token_lister = []
                     for j in range(batch_len):
                         word = self.fields['src'].vocab.itos[batch.src[0][j][i]]
-                        self.input_tokens.append(word)
+                        token_lister.append(word)
                         if word not in self.embed_dict:
                             input_word_vec = batch.src[0][j][i].view(1, 1, 1)
                             self.embed_dict[word] = self.model.encoder.embeddings(input_word_vec)[0][0]
@@ -222,7 +222,8 @@ class Translator(object):
                 copy_enc_states = (copy_enc_states[0].transpose(0, 1), \
                                     copy_enc_states[1].transpose(0, 1))
                 for i in range(copy_memory_bank.size()[0]):
-                    tokens = ' '.join(each for each in self.input_tokens[i] if each != '<blank>')
+                    tokens = [each for each in self.input_tokens[i] if each != '<blank>']
+                    #tokens = ' '.join(each for each in self.input_tokens[i] if each != '<blank>')
                     self.saver_list.append((tokens, (copy_memory_bank[i], \
                                (copy_enc_states[0][i], copy_enc_states[1][i]))))
 
@@ -377,7 +378,6 @@ class Translator(object):
             memory_bank,
             memory_lengths=memory_lengths,
             step=step)
-
         # Generator forward.
         if not self.copy_attn:
             attn = dec_attn["std"]
