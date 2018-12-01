@@ -66,15 +66,15 @@ class NN(torch.nn.Module):
   ):
     super(NN, self).__init__()
     assert num_layers == 1, "must be 1 for now"
-    self.linear1 = torch.nn.Linear(input_size, len(w2i))
+    self.linear1 = torch.nn.Linear(input_size, hidden_size)
     self.linear2 = torch.nn.Linear(hidden_size, hidden_size)
     self.linear3 = torch.nn.Linear(hidden_size, len(w2i))
-    self.dropout = torch.nn.Dropout(p=0.3)
+    self.dropout = torch.nn.Dropout(p=0.5)
 
   def forward(self, X):
-    #out = self.linear3(self.dropout(F.tanh(self.linear2(self.dropout(F.tanh(self.linear1(X)))))))
+    out = self.linear3(self.dropout(F.tanh(self.linear2(self.dropout(F.tanh(self.linear1(X)))))))
     #return (out - out.mean())/out.std()
-    out = self.linear1(X)
+    #out = self.linear1(X)
     return out
 
 def evaluate(model, data):
