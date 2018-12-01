@@ -110,6 +110,9 @@ def train(num_epochs=100, batch_size=64):
 
   evaluate(model, train_data)
   evaluate(model, test_data)
+  evaluate(model, (test_data[0][1::4], test_data[1][1::4]))   
+  evaluate(model, (test_data[0][0::4], test_data[1][0::4]))   
+  torch.save(model, "SUBSTRING_EXP_MODEL_FINAL")
   import pdb; pdb.set_trace()
 
 if __name__ == '__main__':
