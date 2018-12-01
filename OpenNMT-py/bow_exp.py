@@ -73,8 +73,6 @@ class NN(torch.nn.Module):
 
   def forward(self, X):
     out = self.linear3(self.dropout(F.tanh(self.linear2(self.dropout(F.tanh(self.linear1(X)))))))
-    #return (out - out.mean())/out.std()
-    #out = self.linear1(X)
     return out
 
 def evaluate(model, data):
@@ -84,7 +82,7 @@ def evaluate(model, data):
   loss = torch.nn.BCEWithLogitsLoss()(y_pred, y)
   print("Test loss: {0}".format(loss.item()))
   
-  pred = ((F.sigmoid(y_pred) > 0.5).float() == y)
+  pred = ((F.sigmoid(y_pred) > 0.5).float() == 1)
   correct = (y == 1) 
 
   # TP / (TP + FP)
@@ -127,7 +125,8 @@ def train(num_epochs=100, batch_size=64):
       y_pred = model(X_batch)
 
       # Calculate loss and backward pass
-      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch, y_batch)
+
+      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch, y_batch * 0.8 + 0.2 *  (y_batch == 0).float())
       loss.backward()
       cum_loss += loss.item()
 
