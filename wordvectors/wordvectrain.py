@@ -10,5 +10,5 @@ def train_wordvec(trainfile):
 
 
 if __name__=='__main__':
-    trainfile = 'datasets/SCAN/mt_data/train.daxy.src'
+    trainfile = '../datasets/SCAN/mt_data/forwordvecfull.daxy'
     train_wordvec(trainfile)

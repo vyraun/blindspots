@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 Glove = {}
-f = open('datasets/SCAN/mt_data/train.daxy.src.w2v', 'rb')
+f = open('../datasets/SCAN/mt_data/forwordvecfull.daxy.w2v', 'rb')
 data = pickle.load(f)
 
 for each in data.wv.vocab:
@@ -17,7 +17,7 @@ for x in Glove:
         X_train_names.append(x)
 
 X_train = np.asarray(X_train)
-embedding_file = open('datasets/SCAN/mt_data/train.daxy.src.w2v.formatted', 'w')
+embedding_file = open('../datasets/SCAN/mt_data/forwordvecfull.daxy.w2v.formatted', 'w')
 
 for i, x in enumerate(X_train_names):
         embedding_file.write("%s " % x)
