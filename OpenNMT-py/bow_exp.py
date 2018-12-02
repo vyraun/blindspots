@@ -13,7 +13,7 @@ def build_data(data, shuffle=True, w2i=None):
   hiddens = []
   labels = []
   for row in data:
-    for i in range(len(row[0])-2,len(row[0])):
+    for i in range(len(row[0])):
       hiddens.append(row[1][0][i])
       bow = torch.zeros(len(w2i)).cuda()
       bow[[w2i.get(w, 0) for w in row[0][:i+1]]] = 1
@@ -82,20 +82,27 @@ def evaluate(model, data):
   loss = torch.nn.BCEWithLogitsLoss()(y_pred, y)
   print("Test loss: {0}".format(loss.item()))
   
-  pred = ((F.sigmoid(y_pred) > 0.5).float() == 1)
-  correct = (y == 1) 
+  def _eval(threshold=0.5):
+    pred = ((F.sigmoid(y_pred) > threshold).float() == 1)
+    correct = (y == 1) 
 
-  # TP / (TP + FP)
-  prec = ( ( torch.sum(pred & correct, dim=1).float()  /torch.sum(pred == 1 , dim=1).float() ).float()  * (torch.sum(pred==1, dim=1)>0).float() ).float().mean()
-  print("Test precision: {0}".format(prec.item()))
+    # TP / (TP + FP)
+    prec = ( ( torch.sum(pred & correct, dim=1).float()  /(0.00001 + torch.sum(pred == 1 , dim=1).float()) ).float()  * (torch.sum(pred==1, dim=1)>0).float() ).float().mean()
+    print("Test precision: {0}".format(prec.item()))
 
-  # TP / (TP + FN)
-  recall = ( torch.sum(pred & correct, dim=1).float() /torch.sum(correct == 1, dim=1).float() ).float().mean()
-  print("Test recall: {0}".format(recall.item()))
+
+    # TP / (TP + FN)
+    recall = ( torch.sum(pred & correct, dim=1).float() /torch.sum(correct == 1, dim=1).float() ).float().mean()
+    print("Test recall: {0}".format(recall.item()))
+
+    print("Test F1: {0}".format(2 * prec * recall / (prec + recall)))
+
+  import pdb; pdb.set_trace()
+  _eval()
 
   model.train()
 
-def train(num_epochs=100, batch_size=64):
+def train(num_epochs=50, batch_size=64):
   # Instantiate model, loss and optim
   model = NN(input_size=train_data[0].size(1), hidden_size=1024, num_layers=1).cuda()
   criterion = torch.nn.BCEWithLogitsLoss()
@@ -126,7 +133,7 @@ def train(num_epochs=100, batch_size=64):
 
       # Calculate loss and backward pass
 
-      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch)#, y_batch * 0.8 + 0.2 *  (y_batch == 0).float())
+      loss = F.binary_cross_entropy_with_logits(y_pred, y_batch, y_batch * 0.9 + 0.1 *  (y_batch == 0).float())
       loss.backward()
       cum_loss += loss.item()
 
@@ -136,9 +143,9 @@ def train(num_epochs=100, batch_size=64):
       # Step
       optim.step()
 
-    if epoch % 5 == 0:
+    #if epoch % 5 == 0:
       #evaluate(model, train_data)
-      evaluate(model, test_data_short)
+      #evaluate(model, test_data_short)
 
   #evaluate(model, train_data)
   evaluate(model, test_data_short)
