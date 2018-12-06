@@ -33,7 +33,7 @@ python ../models/nmt.py \
     --dev-src ${dev_src} \
     --dev-tgt ${dev_tgt} \
     --save-to ${work_dir}/model.bin \
-    --valid-niter 800 \
+    --valid-niter 160 \
     --batch-size 16 \
     --hidden-size 512 \
     --embed-size 300 \

@@ -410,17 +410,21 @@ class NMT(object):
         # by the NN library to signal the backend to not to keep gradient information
         # e.g., `torch.no_grad()`
 
+        total = 0
+        total_examples = 0
         for src_sents, tgt_sents in batch_iter(dev_data, batch_size):
             #loss = -self.model(src_sents, tgt_sents).sum()
             src_encodings, decoder_init_state, loss= self.encode(src_sents)
             #loss = self.decode(src_encodings, decoder_init_state, tgt_sents)[1]
             loss = loss[1]
+            total += loss.item()
             cum_loss += loss.item()
+            total_examples += len(src_sents)
             tgt_word_num_to_predict = sum(len(s[1:]) for s in src_sents)  # omitting the leading `<s>`
             cum_tgt_words += tgt_word_num_to_predict
 
-        ppl = np.exp(cum_loss / cum_tgt_words)
-
+        #ppl = np.exp(cum_loss / cum_tgt_words)
+        ppl = total / total_examples
         # Set model back to train
         self.encoder.train()
         self.decoder.train()
@@ -582,11 +586,11 @@ def train(args: Dict[str, str]):
 
                 # compute dev. ppl and bleu
                 dev_ppl = model.evaluate_ppl(dev_data, batch_size=64)   # dev batch size can be a bit larger
-                valid_metric = -dev_ppl
+                valid_metric = dev_ppl
 
                 print('validation: iter %d, dev. ppl %f' % (train_iter, dev_ppl), file=sys.stderr)
 
-                is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
+                is_better = len(hist_valid_scores) == 0 or valid_metric < max(hist_valid_scores)
                 hist_valid_scores.append(valid_metric)
 
                 if is_better:
