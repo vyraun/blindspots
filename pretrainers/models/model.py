@@ -28,6 +28,7 @@ class EncoderRNN(nn.Module):
         self.embedding_layerNorm = nn.LayerNorm(self.embed_size)
         self.hidden_layerNorm = nn.LayerNorm(self.hidden_size)
         self.transform_hidden = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.bowlinear = nn.Linear(self.hidden_size, vocab_size)
 
     def forward(self, input, input_lengths):
         embedded = self.embedding(input)
@@ -43,7 +44,8 @@ class EncoderRNN(nn.Module):
         output, _ = torch.nn.utils.rnn.pad_packed_sequence(output)
         if self.bidirectional != True:
             #hidden = self.transform(hidden)
-            return output, hidden
+            bow_output = self.bowlinear(hidden[0])
+            return output, hidden, bow_output
         else:
             hidden_final = torch.cat((hidden[0][0], hidden[0][1]), dim=1).unsqueeze(0)
             cell_final = torch.cat((hidden[1][0], hidden[1][1]), dim=1).unsqueeze(0)
@@ -53,7 +55,8 @@ class EncoderRNN(nn.Module):
         # Changes for Bidi to work
             cell_final = self.transform_hidden(cell_final)
             hidden_final = F.tanh(cell_final)
-            return output, (hidden_final, cell_final)
+            bow_output = self.bowlinear(hidden_final)
+            return output, (hidden_final, cell_final), bow_output
 
 class DecoderRNN(nn.Module):
     def __init__(self, 

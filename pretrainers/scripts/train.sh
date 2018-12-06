@@ -43,8 +43,9 @@ python ../models/nmt.py \
     --lr-decay 0.5 \
     --num-layers 1 \
     --attention-type 'general' \
-    --bidirectional \
-    --embedding_file ${embed_file}
+    --bidirectional
+
+#    --embedding_file ${embed_file}
 
 # FOR BIDIRECTIONAL add the flag --bidirectional
 

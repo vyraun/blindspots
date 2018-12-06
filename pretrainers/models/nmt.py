@@ -118,6 +118,10 @@ class NMT(object):
         src_vocab_size = len(self.vocab.src.word2id)
         tgt_vocab_size = len(self.vocab.tgt.word2id)
 
+
+        self.src_vocab_size = len(self.vocab.src.word2id)
+        self.tgt_vocab_size = len(self.vocab.tgt.word2id)
+
         if embedding_file is not None:
 
              Glove = {}
@@ -165,6 +169,7 @@ class NMT(object):
           torch.nn.init.uniform(param, a=-uniform_init, b=uniform_init)
 
         self.criterion = torch.nn.CrossEntropyLoss(reduce=0).cuda()
+        self.bowcriterion = torch.nn.BCEWithLogitsLoss(reduce=0).cuda()
 
     def __call__(self, src_sents: List[List[str]], tgt_sents: List[List[str]]) -> torch.Tensor:
         """
@@ -180,8 +185,8 @@ class NMT(object):
                 log-likelihood of generating the gold-standard target sentence for 
                 each example in the input batch
         """
-        src_encodings, decoder_init_state = self.encode(src_sents)
-        scores = self.decode(src_encodings, decoder_init_state, tgt_sents)
+        src_encodings, decoder_init_state, scores = self.encode(src_sents)
+        #scores = self.decode(src_encodings, decoder_init_state, tgt_sents)
 
         return scores
 
@@ -199,7 +204,14 @@ class NMT(object):
         """
         # Numberize the source sentences
         numb_src_sents = self.vocab.src.numberize(src_sents)
+        bag_input = []
+        for numb_sents in numb_src_sents:
+            arr = [0 for i in range(self.src_vocab_size)]
+            for points in numb_sents:
+                arr[points] = 1
+            bag_input.append(arr) 
 
+        bag_input = torch.FloatTensor(bag_input).cuda()
         # Sort from longest to smallest
         sorted_indices = sorted(range(len(src_sents)), key=lambda i: len(numb_src_sents[i]), reverse=True)
 
@@ -216,13 +228,19 @@ class NMT(object):
         # Construct a long tensor (seq_len * batch_size)
         input_tensor = Variable(torch.LongTensor(padded_src_sent).t()).cuda()
         # Call encoder
-        src_encodings, decoder_init_state = self.encoder(input_tensor, input_lengths)
+        src_encodings, decoder_init_state, bow_output= self.encoder(input_tensor, input_lengths)
 
         # Unsort
         unsorted_indices = sorted(range(len(sorted_indices)), key=lambda i: sorted_indices[i])
         src_encodings = src_encodings[:,unsorted_indices]
+        bow_output = bow_output[:,unsorted_indices]
+
+        bow_output = bow_output.squeeze(0)
+        computed_loss = self.bowcriterion(bow_output, bag_input)
+        loss_sum = computed_loss.mean(dim=1).sum()
+        loss = computed_loss.mean()
         decoder_init_state = [e[:,unsorted_indices] for e in decoder_init_state]
-        return src_encodings, decoder_init_state
+        return src_encodings, decoder_init_state, (loss, loss_sum) 
 
     def decode(self, src_encodings: torch.Tensor, decoder_init_state: Any, tgt_sents: List[List[str]]) -> torch.Tensor:
         """
@@ -394,11 +412,11 @@ class NMT(object):
 
         for src_sents, tgt_sents in batch_iter(dev_data, batch_size):
             #loss = -self.model(src_sents, tgt_sents).sum()
-            src_encodings, decoder_init_state = self.encode(src_sents)
-            loss = self.decode(src_encodings, decoder_init_state, tgt_sents)[1]
-
+            src_encodings, decoder_init_state, loss= self.encode(src_sents)
+            #loss = self.decode(src_encodings, decoder_init_state, tgt_sents)[1]
+            loss = loss[1]
             cum_loss += loss.item()
-            tgt_word_num_to_predict = sum(len(s[1:]) for s in tgt_sents)  # omitting the leading `<s>`
+            tgt_word_num_to_predict = sum(len(s[1:]) for s in src_sents)  # omitting the leading `<s>`
             cum_tgt_words += tgt_word_num_to_predict
 
         ppl = np.exp(cum_loss / cum_tgt_words)
@@ -527,7 +545,7 @@ def train(args: Dict[str, str]):
             optim.step()
             #print("step", time.time() - start_time)
 
-            tgt_words_num_to_predict = sum(len(s[1:]) for s in tgt_sents)  # omitting leading `<s>`
+            tgt_words_num_to_predict = sum(len(s[1:]) for s in src_sents)  # omitting leading `<s>`
             report_tgt_words += tgt_words_num_to_predict
             cumulative_tgt_words += tgt_words_num_to_predict
             report_examples += batch_size
