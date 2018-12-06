@@ -510,7 +510,7 @@ def train(args: Dict[str, str]):
 
     num_trial = 0
     train_iter = patience = cum_loss = report_loss = cumulative_tgt_words = report_tgt_words = 0
-    cumulative_examples = report_examples = epoch = valid_num = 0
+    cumulative_examples = report_examples = epoch = valid_num = cum_iter = 0
     hist_valid_scores = []
     train_time = begin_time = time.time()
     print('begin Maximum Likelihood training')
@@ -535,9 +535,9 @@ def train(args: Dict[str, str]):
             #print("forward", time.time() - start_time)
             #report_loss += loss.item()
             #for now using the sum_loss to calculate report_loss
-            report_loss += sum_loss.item()
+            report_loss += loss.item()
             cum_loss += sum_loss.item()
-
+            cum_iter += 1
             # TODO: ensure that this can actually be called
             loss.backward()
             #print("backwards", time.time() - start_time)
@@ -556,9 +556,9 @@ def train(args: Dict[str, str]):
             cumulative_examples += batch_size
 
             if train_iter % log_every == 0:
-                print('epoch %d, iter %d, avg. loss %.2f, avg. ppl %.2f ' \
+                print('epoch %d, iter %d, avg. loss %.6f, avg. ppl %.2f ' \
                       'cum. examples %d, speed %.2f words/sec, time elapsed %.2f sec' % (epoch, train_iter,
-                                                                                         report_loss / report_examples,
+                                                                                         report_loss / cum_iter,
                                                                                          np.exp(report_loss / report_tgt_words),
                                                                                          cumulative_examples,
                                                                                          report_tgt_words / (time.time() - train_time),
@@ -566,7 +566,7 @@ def train(args: Dict[str, str]):
 
                 train_time = time.time()
                 report_loss = report_tgt_words = report_examples = 0.
-
+                cum_iter = 0
             # the following code performs validation on dev set, and controls the learning schedule
             # if the dev score is better than the last check point, then the current model is saved.
             # otherwise, we allow for that performance degeneration for up to `--patience` times;
