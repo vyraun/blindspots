@@ -105,6 +105,8 @@ class Translator(object):
 
         # for dumping tensors
         self.dump_hid = opt.output + '.dumps'
+        # for dumping embedding vectors
+        self.dump_embed = opt.output + '.embed.dumps'
         # for debugging
         self.beam_trace = self.dump_beam != ""
         self.beam_accum = None
@@ -152,7 +154,7 @@ class Translator(object):
         assert src_data_iter is not None or src_path is not None
 
         self.save_outs = save_outs
-
+        self.embed_dict = {}
         if batch_size is None:
             raise ValueError("batch_size must be set")
         data = inputters. \
@@ -198,6 +200,13 @@ class Translator(object):
 
         for batch in data_iter:
             if self.save_outs:
+                batch_len, batch_size = batch.src[0].size(0), batch.src[0].size(1)
+                for i in range(batch_size):
+                    for j in range(batch_len):
+                        word = self.fields['src'].vocab.itos[batch.src[0][j][i]]
+                        if word not in self.embed_dict:
+                            input_word_vec = batch.src[0][j][i].view(1, 1, 1)
+                            self.embed_dict[word] = self.model.encoder_last.embeddings(input_word_vec)[0][0]
                 batch_data, copy_enc_states, copy_memory_bank = \
                          self.translate_batch(batch, data, attn_debug, fast=self.fast)
             else:
@@ -263,6 +272,9 @@ class Translator(object):
             for tokens, vectors in zip(self.input_tokens, self.saver_list):
                 final_list.append((tokens, vectors))
             pickle.dump(final_list, open(self.dump_hid, 'wb'))
+            print("saving the embedding vectors")
+            print(len(self.embed_dict))
+            pickle.dump(self.embed_dict, open(self.dump_embed, 'wb'))
 
         if self.report_score:
             msg = self._report_score('PRED', pred_score_total,
