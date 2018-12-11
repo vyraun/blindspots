@@ -14,6 +14,9 @@ import onmt.utils
 
 from onmt.utils.logging import logger
 
+import torch
+import torch.nn as nn
+
 
 def build_trainer(opt, device_id, model, fields,
                   optim, data_type, model_saver=None):
@@ -140,6 +143,7 @@ class Trainer(object):
         report_stats = onmt.utils.Statistics()
         self._start_report_manager(start_time=total_stats.start_time)
 
+        first = True
         while step <= train_steps:
 
             reduce_counter = 0
@@ -170,14 +174,19 @@ class Trainer(object):
                                                 .all_gather_list
                                                 (normalization))
 
-                        self._gradient_accumulation(
-                            true_batchs, normalization, total_stats,
-                            report_stats)
+                        if first:
+                          self._pretrain_grad_accum(
+                              true_batchs, normalization, total_stats,
+                              report_stats)
+                        else:
+                          self._gradient_accumulation(
+                              true_batchs, normalization, total_stats,
+                              report_stats)
 
-                        report_stats = self._maybe_report_training(
-                            step, train_steps,
-                            self.optim.learning_rate,
-                            report_stats)
+                          report_stats = self._maybe_report_training(
+                              step, train_steps,
+                              self.optim.learning_rate,
+                              report_stats)
 
                         true_batchs = []
                         accum = 0
@@ -207,6 +216,7 @@ class Trainer(object):
                 logger.info('GpuRank %d: we completed an epoch \
                             at step %d' % (self.gpu_rank, step))
             train_iter = train_iter_fct()
+            first = False
 
         return total_stats
 
@@ -246,6 +256,56 @@ class Trainer(object):
         self.model.train()
 
         return stats
+
+    def _pretrain_grad_accum(self, true_batchs, normalization, total_stats,
+                             report_stats):
+        if self.grad_accum_count > 1:
+            self.model.zero_grad()
+
+        bowcriterion = nn.BCEWithLogitsLoss(reduce=0).cuda()
+
+        for batch in true_batchs:
+            target_size = batch.tgt.size(0)
+            # Truncated BPTT: reminder not compatible with accum > 1
+            if self.trunc_size:
+                trunc_size = self.trunc_size
+            else:
+                trunc_size = target_size
+
+            # dec_state = None
+            src = inputters.make_features(batch, 'src', self.data_type)
+            if self.data_type == 'text':
+                _, src_lengths = batch.src
+                report_stats.n_src_words += src_lengths.sum().item()
+            elif self.data_type == 'audio':
+                src_lengths = batch.src_lengths
+            else:
+                src_lengths = None
+
+
+            if self.grad_accum_count == 1:
+                self.model.zero_grad()
+            bow_preds = self.model(src, None, src_lengths, bow=True)
+
+            bow_true = torch.zeros(bow_preds.size()).cuda()
+            for i in range(src.size(1)):
+              indices = src[:src_lengths[i],i].squeeze()
+              bow_true[i][indices] = 1
+
+            loss = bowcriterion(bow_preds, bow_true).mean(dim=1).mean()
+            loss.backward()
+
+            # 4. Update the parameters and statistics.
+            if self.grad_accum_count == 1:
+                # Multi GPU gradient gather
+                if self.n_gpu > 1:
+                    grads = [p.grad.data for p in self.model.parameters()
+                             if p.requires_grad
+                             and p.grad is not None]
+                    onmt.utils.distributed.all_reduce_and_rescale_tensors(
+                        grads, float(1))
+                self.optim.step()
+
 
     def _gradient_accumulation(self, true_batchs, normalization, total_stats,
                                report_stats):

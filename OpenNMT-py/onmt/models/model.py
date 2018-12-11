@@ -17,8 +17,9 @@ class NMTModel(nn.Module):
         super(NMTModel, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-
-    def forward(self, src, tgt, lengths):
+        self.bowlinear = nn.Linear(500, 50002)
+ 
+    def forward(self, src, tgt, lengths, bow=False):
         """Forward propagate a `src` and `tgt` pair for training.
         Possible initialized with a beginning decoder state.
 
@@ -38,6 +39,12 @@ class NMTModel(nn.Module):
                  * decoder output `[tgt_len x batch x hidden]`
                  * dictionary attention dists of `[tgt_len x batch x src_len]`
         """
+        # Do bow forward
+        if bow:
+          enc_state, _, _ = self.encoder(src, lengths)
+          return self.bowlinear(enc_state[0][-1])
+
+
         tgt = tgt[:-1]  # exclude last target from inputs
 
         enc_state, memory_bank, lengths = self.encoder(src, lengths)
