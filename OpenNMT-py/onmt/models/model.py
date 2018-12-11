@@ -1,5 +1,6 @@
 """ Onmt NMT Model base class definition """
 import torch.nn as nn
+import torch
 
 
 class NMTModel(nn.Module):
@@ -42,7 +43,7 @@ class NMTModel(nn.Module):
         # Do bow forward
         if bow:
           enc_state, _, _ = self.encoder(src, lengths)
-          return self.bowlinear(enc_state[0][-1])
+          return self.bowlinear(torch.cat((enc_state[0][-2], enc_state[0][-1]), dim=1))
 
 
         tgt = tgt[:-1]  # exclude last target from inputs

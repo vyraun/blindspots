@@ -143,8 +143,11 @@ class Trainer(object):
         report_stats = onmt.utils.Statistics()
         self._start_report_manager(start_time=total_stats.start_time)
 
-        first = True
+        epoch = 0
+        pretrain_epochs = 5
         while step <= train_steps:
+            print(epoch,step)
+            epoch += 1
 
             reduce_counter = 0
             for i, batch in enumerate(train_iter):
@@ -174,7 +177,7 @@ class Trainer(object):
                                                 .all_gather_list
                                                 (normalization))
 
-                        if first:
+                        if epoch < pretrain_epochs:
                           self._pretrain_grad_accum(
                               true_batchs, normalization, total_stats,
                               report_stats)
@@ -209,7 +212,8 @@ class Trainer(object):
 
                         if self.gpu_rank == 0:
                             self._maybe_save(step)
-                        step += 1
+                        if epoch >= pretrain_epochs:
+                          step += 1 
                         if step > train_steps:
                             break
             if self.gpu_verbose_level > 0:
